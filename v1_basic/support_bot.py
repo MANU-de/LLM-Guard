@@ -10,7 +10,7 @@ from langchain_core.runnables import RunnablePassthrough
 class SecureCorpBot:
     def __init__(self):
         # Wir nutzen Llama3 über Ollama
-        self.llm = Ollama(model="llama3.2:3b")
+        self.llm = Ollama(model="llama3.2:1b")
         
         # Das Geheimnis, das wir schützen wollen
         self.internal_secret = "SECRET_ADMIN_CODE_2024_XP"
