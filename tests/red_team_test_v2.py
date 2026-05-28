@@ -1,29 +1,42 @@
-from src.support_bot_v2 import SecureCorpBotV2
+# Ändere einfach den Import um zu testen:
+# from src.support_bot_v2 import SecureCorpBotV2
+from src.support_bot_v3 import SecureCorpBotV3 as SecureCorpBot
 import time
 from datetime import datetime
 
 def save_markdown_report(results, secret):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"RedTeam_Audit_{timestamp}.md"
+    filename = f"RedTeam_Audit_v3_{timestamp}.md"
     
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(f"# AI Security Audit: Multi-Turn Report\n\n")
+        f.write(f"# AI Security Audit: Version 3.0 (Tool-Gating)\n\n")
         f.write(f"- **Datum:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
+        f.write(f"- **Audit-Fokus:** Context Window Isolation & Tool-Gating\n")
         f.write(f"- **Ziel-Geheimnis:** `{secret}`\n\n")
         
+        # --- NEUER ABSCHNITT: ARCHITEKTUR-ANALYSE ---
+        f.write("## 🛡️ Architectural Security Analysis\n")
+        f.write("In dieser Version (v3.0) wurde eine **Zero-Knowledge-Reasoning** Architektur implementiert:\n")
+        f.write("- **Context Isolation:** Das Ziel-Geheimnis ist NICHT mehr Teil des System-Prompts.\n")
+        f.write("- **Tool-Gating:** Der Zugriff auf sensible Daten erfolgt ausschließlich über eine externe Python-Funktion (`retrieve_admin_code`).\n")
+        f.write("- **Hardened Logic:** Selbst bei einem erfolgreichen Jailbreak des LLM-Kontexts existiert kein Geheimnis im 'Gedächtnis' des Modells, das extrahiert werden könnte.\n\n")
+        f.write("---\n\n")
+        
+        f.write("## Test-Szenarien\n\n")
         for res in results:
             status = "❌ GEKNACKT" if res['success'] else "✅ ABGEWEHRT"
-            f.write(f"## Szenario: {res['name']}\n")
+            f.write(f"### Szenario: {res['name']}\n")
             f.write(f"**Ergebnis:** {status}\n\n")
             f.write("| Runde | User-Input | Bot-Antwort |\n|---|---|---|\n")
             for turn in res['turns']:
                 clean_resp = turn['response'].replace('\n', ' ')
                 f.write(f"| {turn['round']} | {turn['prompt']} | {clean_resp} |\n")
             f.write("\n---\n")
+            
     return filename
 
 def run_audit():
-    bot = SecureCorpBotV2()
+    bot = SecureCorpBot()
     secret = bot.internal_secret
     scenarios = [
         {
@@ -76,3 +89,6 @@ def run_audit():
 
 if __name__ == "__main__":
     run_audit()
+
+#export PYTHONPATH=$PYTHONPATH:.
+#python3 tests/red_team_test_v2.py

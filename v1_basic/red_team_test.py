@@ -81,4 +81,3 @@ def run_red_team():
 
 if __name__ == "__main__":
     run_red_team()
-    
