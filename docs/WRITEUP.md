@@ -1,64 +1,78 @@
-# Technical Write-up: LLM-Guard v2.0
-## Advanced Red Teaming and Defense-in-Depth for LLM Applications
+# Technical Write-up: LLM-Guard v3.0
+
+## From Semantic Defense to Zero-Knowledge Tool-Gating
 
 ### 1. Executive Summary
-As Large Language Models (LLMs) are increasingly integrated into enterprise workflows, they introduce a new class of vulnerabilities: **Prompt Injection** and **Jailbreaking**. This project, **LLM-Guard**, demonstrates a robust security framework for a RAG-based customer support bot ("SecureCorp"). The project evolved from basic keyword filtering to a sophisticated **Dual-LLM "Watchdog" architecture**, successfully mitigating complex multi-turn adversarial attacks.
+
+As Large Language Models (LLMs) are integrated into enterprise workflows, they introduce critical vulnerabilities like **Prompt Injection** and **Context Leakage**. This project, **LLM-Guard**, demonstrates the evolution of a security framework for a customer support bot ("SecureCorp"). The project progressed from basic filtering (v1) and Dual-LLM monitoring (v2) to a professional **Zero-Knowledge Tool-Gating architecture (v3)**, effectively isolating sensitive data from the model's reasoning layer.
 
 ---
 
-### 2. The Challenge: Beyond Simple Injections
-Standard security measures, such as system prompts ("Do not reveal the secret"), are easily bypassed by sophisticated attackers. During the initial Red Teaming phase, I identified that the bot was susceptible to:
-*   **Context Steering:** Gradually nudging the bot away from its safety guidelines.
-*   **Persona Adoption:** Forcing the bot into a role (e.g., a "debug terminal") to bypass safety filters.
-*   **Multi-turn Attacks:** Using a series of seemingly benign messages to build a malicious state in the bot's memory.
+### 2. The Challenge: Context Leakage & Jailbreaking
+
+Standard security measures often rely on system prompts (e.g., "Do not reveal the secret"). However, sophisticated attackers use **Context Steering** and **Jailbreaking** to bypass these instructions.
+
+- **The v2.0 Vulnerability:** Even with a "Watchdog" model, the secret still resided within the main model's **Context Window**. If an attacker successfully bypassed the guardrails, the secret was readily available for extraction.
+- **The v3.0 Solution:** Removing the secret from the prompt entirely, ensuring the model has "Zero-Knowledge" of the sensitive data until a secure, external validation occurs.
 
 ---
 
-### 3. Architecture: Defense-in-Depth
-To secure the application, I implemented a multi-layered defense strategy, moving away from stateless filters to semantic understanding.
+### 3. Architecture: Defense-in-Depth Evolution
 
-#### A. The Dual-LLM "Watchdog" Pattern
-The core of Version 2.0 is the integration of **Llama Guard 3 (1B)**. This specialized model acts as a security orchestrator that inspects both the "Front Door" (User Input) and the "Back Door" (Model Output).
+#### A. The Dual-LLM "Watchdog" Pattern (v2.0)
 
-1.  **Input Guardrail:** Before the request reaches the main model, Llama Guard analyzes the intent. If it detects adversarial patterns (Jailbreaking, PII requests, etc.), the request is dropped.
-2.  **Main Reasoning Layer:** **Llama 3.2 (1B)** processes the support request using a hardened system prompt and conversation memory.
-3.  **Output Guardrail:** The generated response is re-evaluated by the Watchdog. If the main model "slipped" and included sensitive data, the Watchdog blocks the transmission.
-4.  **Hard-Filter Backup:** A final Regex-based layer ensures that specific high-value secrets (e.g., `SECRET_ADMIN_CODE`) never leave the system, providing a fail-safe against model hallucinations.
+The system utilizes **Llama Guard 3 (1B)** as a security orchestrator. It inspects both User Input and Model Output for adversarial intent, providing a semantic layer of protection that goes beyond simple keyword matching.
+
+#### B. Context Isolation & Tool-Gating (v3.0)
+
+In the latest iteration, I implemented **Separation of Concerns** by decoupling sensitive data from the LLM's reasoning process:
+
+1. **Context Isolation:** The "Secret Admin Code" was removed from the system prompt. The model no longer "knows" the secret.
+2. **Tool-Gating:** I implemented LangChain’s **Tool-Calling framework**. The LLM acts as an orchestrator that must call a specific Python-based tool (retrieve_admin_code) to access sensitive information.
+3. **Logic-Based Authorization:** The tool acts as a "Gate." It requires a valid **Access Token** checked via native Python logic. This creates a metaphorical "Air-Gap": even if the LLM is compromised via jailbreak, it cannot produce the secret without triggering the tool's internal logic-based validation.
 
 ---
 
 ### 4. Engineering for Constraints: Resource Optimization
-A significant engineering challenge was running a Dual-LLM setup on hardware with limited RAM (approx. 8GB). 
-*   **Problem:** Loading two 8B parameter models caused resource contention and system hangs.
-*   **Solution:** I optimized the stack by utilizing **1B parameter models** (Llama 3.2 1B and Llama Guard 3 1B). 
-*   **Result:** This reduced the memory footprint to ~2.5GB, allowing for low-latency, real-time security auditing on edge-computing hardware without sacrificing the semantic quality of the security checks.
+
+A significant challenge was running this multi-model architecture on consumer-grade hardware (approx. 8GB RAM).
+
+- **Optimization:** By utilizing **1B parameter models** (Llama 3.2 1B for reasoning and Llama Guard 3 1B for security), the memory footprint was reduced to ~2.5GB.
+- **Reliability:** To handle the lower reasoning capabilities of 1B models, I implemented **Robust Error Handling** and **Few-Shot Prompting** to ensure the models follow the Tool-Calling schema correctly without crashing the pipeline.
 
 ---
 
 ### 5. Red Teaming Methodology
-To validate the defense, I developed an automated **Multi-turn Red Teaming Framework**. Unlike single-shot tests, this framework simulates a persistent attacker:
-*   **Social Engineering Simulation:** Mimicking a new employee trying to "verify" internal codes.
-*   **Recursive Jailbreaking:** Using sci-fi roleplay scenarios to test the bot's adherence to its system instructions over a long context window.
-*   **Automated Auditing:** The system generates a timestamped Markdown report for every audit, documenting the "User-Bot" exchange and the specific point where the Guardrails intervened.
+
+The system is validated using an automated **Multi-turn Red Teaming Framework** that simulates persistent adversarial behavior:
+
+- **Social Engineering:** Mimicking authorized personnel to nudge the bot into revealing internal protocols.
+- **Recursive Jailbreaking:** Using complex roleplay to test if the bot adheres to its "Tool-Gating" instructions over long conversation windows.
+- **Evidence Generation:** The framework produces timestamped Markdown reports, providing a transparent audit trail of the security pipeline's performance.
 
 ---
 
 ### 6. Results & Key Findings
-*   **Mitigation Rate:** Version 2.0 achieved a **100% mitigation rate** against the tested multi-turn jailbreak scenarios.
-*   **Semantic vs. Syntactic:** While Version 1.0 (Regex) caught direct mentions of the secret, Version 2.0 (Llama Guard) successfully identified the *intent* to bypass rules, even when the secret itself wasn't mentioned in the prompt.
-*   **Latency Trade-off:** Adding a Watchdog layer adds a slight overhead, but by using 1B models, the latency remains within acceptable limits for a real-time support application.
+
+- **v3.0 Resilience:** Version 3.0 successfully mitigated 100% of the tested jailbreak scenarios. Even when the model was "convinced" to help the attacker, it could not leak the secret because the secret was not in its context.
+- **Architectural Superiority:** The shift from "Instruction-based security" to "Architecture-based security" proved to be the most effective defense against context-extraction attacks.
+- **Fail-Safe:** The combination of Llama Guard (Semantic) and Tool-Gating (Logic) provides a robust multi-layered defense that handles both intent-based and data-based threats.
 
 ---
 
 ### 7. Future Work: The "Indirect Injection" Frontier
-The next phase of this project will focus on **Indirect Prompt Injection**. This involves poisoning the RAG data corpus (e.g., malicious instructions hidden in PDFs or websites) to compromise the bot when it retrieves external information. This will require a new layer of "Ingestion Guardrails" to sanitize data before it enters the vector database.
+
+The next phase will address **Indirect Prompt Injection**. This involves poisoning external data sources (RAG corpus) with malicious instructions. Future iterations will include "Ingestion Guardrails" to sanitize retrieved data before it is presented to the reasoning layer.
 
 ---
 
 ### 8. Conclusion
-LLM Security is not a one-time configuration but a continuous engineering process. By combining **semantic AI-based monitoring** with **traditional programmatic filters**, we can build resilient systems that protect sensitive data even in the face of evolving adversarial tactics.
+
+LLM Security is an architectural challenge. Version 3.0 of LLM-Guard demonstrates that the most effective way to protect sensitive data is to **isolate it from the LLM's context window** and gate access through verified, logic-based tools. This "Zero-Knowledge" approach represents the current gold standard for building secure, production-ready AI agents.
 
 ---
-**Tech Stack:** Python, LangChain (LCEL), Ollama, Llama 3.2, Llama Guard 3.
-**Project Repository:** https://github.com/MANU-de/LLM-Guard/tree/main
+
+**Tech Stack:** Python, LangChain (LCEL), LangChain-Ollama, Llama 3.2, Llama Guard 3.  
+**Project Repository:** **[https://github.com/MANU-de/LLM-Guard](https://github.com/MANU-de/LLM-Guard)**  
 **Author:** Manuela Schrittwieser
+
