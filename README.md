@@ -95,7 +95,7 @@ The framework produces timestamped Markdown reports. Below is an example of a su
 
 Audit Report Screenshot
 
-![](docs/images/Screenshot%202026-05-28%2010.41.48%20AM.png)
+![](docs/Screenshot%202026-05-28%2010.41.48%20AM.png)
 *Figure 1: v3.0 Audit Report showing successful Context Isolation.*
 
 ---
